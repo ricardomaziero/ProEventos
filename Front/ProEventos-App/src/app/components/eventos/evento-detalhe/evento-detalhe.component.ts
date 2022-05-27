@@ -18,6 +18,7 @@ import { LoteService } from './../../../services/lote.service';
 import { Lote } from './../../../models/Lote';
 import { EventoService } from './../../../services/evento.service';
 import { Evento } from './../../../models/Evento';
+import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-evento-detalhe',
@@ -32,6 +33,8 @@ export class EventoDetalheComponent implements OnInit {
   form!: FormGroup;
   estadoSalvar = 'post';
   loteAtual = {id: 0, nome: '', indice: 0};
+  imagemURL = 'assets/uploadCloud.png';
+  file: File;
 
   get modoEditar(): boolean {
     return this.estadoSalvar == 'put';
@@ -77,15 +80,20 @@ export class EventoDetalheComponent implements OnInit {
 
       this.estadoSalvar = 'put';
 
-      this.eventoService.getEventoById(this.eventoId).subscribe(
-        (evento: Evento) => {
-          this.evento = { ...evento };
-          this.form.patchValue(this.evento);
-          this.evento.lotes.forEach(lote => {
-            this.lotes.push(this.criarLote(lote));
-          });
-          /* this.carregarLotes(); */
-        },
+      this.eventoService
+        .getEventoById(this.eventoId)
+        .subscribe(
+          (evento: Evento) => {
+            this.evento = { ...evento };
+            this.form.patchValue(this.evento);
+            /* this.evento.lotes.forEach(lote => {
+              this.lotes.push(this.criarLote(lote));
+            }); */
+            if (this.evento.imagemURL != '') {
+              this.imagemURL = environment.apiURL + 'resources/images/' + this.evento.imagemURL;
+            }
+            this.carregarLotes();
+          },
         (error: any) => {
           this.toastr.error('Erro ao tentar carregar Evento', 'Erro!');
           console.error(error);
@@ -94,7 +102,7 @@ export class EventoDetalheComponent implements OnInit {
     }
   }
 
-  /* public carregarLotes(): void {
+  public carregarLotes(): void {
     this.loteService.getLotesByEventoId(this.eventoId).subscribe(
       (lotesRetorno: Lote[]) => {
         lotesRetorno.forEach(lote => {
@@ -106,7 +114,7 @@ export class EventoDetalheComponent implements OnInit {
         console.error(error);
       }
     ).add(() => this.spinner.hide());
-  } */
+  }
 
   ngOnInit(): void {
     this.carregarEvento();
@@ -128,7 +136,7 @@ export class EventoDetalheComponent implements OnInit {
       qtdPessoas: ['', [Validators.required, Validators.max(120000)]],
       telefone: ['', [Validators.required, Validators.maxLength(12)]],
       email: ['', [Validators.required, Validators.email]],
-      imagemURL: ['', Validators.required],
+      imagemURL: [''],
       lotes: this.fb.array([])
     });
   }
@@ -233,6 +241,31 @@ export class EventoDetalheComponent implements OnInit {
 
   declineDeleteLote(): void {
     this.modalRef.hide();
+  }
+
+  onFileChange(ev: any): void {
+    const reader = new FileReader();
+
+    reader.onload = (event: any) => this.imagemURL = event.target.result;
+
+    this.file = ev.target.files;
+    reader.readAsDataURL(this.file[0]);
+
+    this.uploadImage();
+  }
+
+  uploadImage(): void {
+    this.spinner.show();
+    this.eventoService.postUpload(this.eventoId, this.file).subscribe(
+      () => {
+        this.carregarEvento();
+        this.toastr.success('Imagem atualizada com sucesso', 'Sucesso!');
+      },
+      (error: any) => {
+        this.toastr.error('Erro ao fazer upload de imagem', 'Erro!');
+        console.log(error);
+      }
+    ).add(() => this.spinner.hide());
   }
 
 }
